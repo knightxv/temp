@@ -1,0 +1,795 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon"/>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+    <link rel="stylesheet" media="screen and (min-device-width:769px)" href="./css/1.css"/>
+    <link rel="stylesheet" media="screen and (max-device-width:769px)" href="./css/1-1.css"/>
+    <!-- <link rel="stylesheet" media="screen and (max-device-width:769px)" href="./css/bulma.css"/> -->
+    <!-- <script type="text/javascript" src="./js/jquery-1.11.3.min.js"></script> -->
+    <script src="./js/axios.min.js"></script>
+    <script src="./js/qrcode.js"></script>
+    <script src="./js/tools_v2.js"></script>
+    <script src="./js/cryptojs.js"></script>
+    <title>安全支付</title>
+</head>
+<body>
+<div class="pc">
+    <div class="content">
+        <h2>
+            <img id="payBannber">
+        </h2>
+        <h3>扫一扫付款，请输入下面金额（元）</h3>
+        <h4 id="amount">付款金额必须与上面订单金额一致，否则无法到账</h4>
+        <div id="qrCodeImg" class="content_img">
+          <img id="qr-pic" src="./picture/loading.gif" alt="">
+        </div>
+        <h4 id="payTip">付款金额必须与上面订单金额一致，否则无法到账</h4>
+        <div id="aliSection" style="display: none;">
+          <div id="alipayButton" onclick="aliPay()" class="button is-primary is-fullwidth">唤起支付宝支付</div>
+          <div id="taobaoPayButton" style="display: none;" onclick="taobaoPay()" class="button is-info is-fullwidth">唤起淘宝支付</div>
+          <div id="douyinButton" style="display: none;" class="button is-primary is-fullwidth">唤起抖音支付</div>
+          <div id="tipHref" onclick="aliPay()"  style="display: none;">》》以上都不行？点击这里《《</div>
+        </div>
+        <div id="wechatTip" style="display: none;">
+          <!-- <p class="payment-money" style="font-size: 24px;color: #1ece1e;padding: 10px 0;">请务必使用微信余额支付!!!</p> -->
+            <p id="qrmobile" style="display: none;margin: 10px;text-align: center;line-height: 30px;">
+                <span>请截图保存二维码图片至手机后<br>点击右上角“相册”选择刚保存的二维码进行支付</span>
+            </p>
+            <div class="pay clearfix">
+                <img src="./picture/wechat-explain.png" alt="">
+            </div>
+        </div>
+        <p id="time-box">请于<span class="minute_show"></span>分<span class="second_show"></span>秒内支付</p>
+    </div>
+    <!-- <div class="modal open-wechat-tip-modal">
+        <div class="modal-background"></div>
+        <div class="modal-content">
+            <div class="wechat-img-tip-wrap">
+              <img src="./images/wechat_tip.jpg" alt="" srcset="">
+            </div>
+            <button onclick="goWechat()" class="button is-info is-large is-fullwidth">确定</button>
+            <button onclick="closeWechatTipModal()" class="modal-close is-large" aria-label="close"></button>
+        </div>
+      </div> -->
+    <script>
+      var Ohtml = document.documentElement;
+      getSize();
+      function getSize(){
+        var screenWidth = Ohtml.clientWidth;
+        if(screenWidth <= 320){
+          Ohtml.style.fontSize = '25px';  
+        }else if(screenWidth >= 768){   
+          Ohtml.style.fontSize = '60px';  
+        }else{
+          Ohtml.style.fontSize = screenWidth/(12.8) +'px';  
+        }
+      }
+  
+      if (window.screen.width < 768) {
+        document.querySelector('.pc').className += ' mobile';
+      }
+      </script>
+</div>
+<style>
+#qrCodeImg img{
+  width: 100%;
+  height: 100%;
+}
+#aliSection {
+  width: 300px;
+  margin: 0px auto;
+}
+.button {
+  margin: 10px 0;
+  padding: 8px 10px;
+  height: 30px;
+  background-color: #209cee;
+  border-color: transparent;
+  color: #fff;
+  -webkit-appearance: none;
+  align-items: center;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  box-shadow: none;
+  line-height: 30px;
+  font-size: 20px;
+}
+.is-info {
+  background-color: #00d1b2;
+}
+#amount {
+  font-size: 1rem;
+  padding: 0;
+  margin: 0;
+}
+.content h2 {
+  margin-bottom: 0;
+}
+.mobile .content {
+  padding: 10px;
+}
+.content h3:not(:first-child) {
+  margin-top: 0;
+}
+.payment-money {
+  margin-bottom: 0!important;
+}
+.mobile .content p {
+  font-size: 0.7rem;
+}
+.minute_show, .second_show {
+  color: red;
+}
+.pc .content .content_img {
+  width: 4.7rem;
+  height: 4.7rem;
+}
+#tipHref {
+  font-size: 18px;
+  color: red;
+  padding: 6px 0;
+}
+</style>
+</body>
+<script>
+    // 判断移动设备
+    if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+      document.getElementById('qrmobile').style.display = 'block';
+    }
+    var IS_PC = !/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    var APPID = '';
+    if (/^http:\/\/pay\.\w+\.net/.test(location.origin)) {
+      window.baseUrl = location.origin.replace('pay', 'api');
+    } else {
+      window.baseUrl = 'http://192.168.1.88:8012';
+    }
+    window.now = parseInt(Date.now() / 1000);
+    
+    var wechatJumpUrl = '';
+    var time;
+    var payUrl = ''
+    var payUrlQueryUrl = ''
+    var tbUrl = ''; // + '%26type%3Dtaobao'
+    var goAliUrl = '';
+    var orderId = searchParse().orderId;
+    var orderTempVO = null;
+    var loadFingerprintSuccess = false;
+    var attachObj = {};
+    http.get('/api-ss-pay/orderTemp/orderTempInfo', { orderId: orderId }).then(function(res) {
+      var data = res;
+      var attach = data.attach;
+      try {
+        attachObj = JSON.parse(attach)
+      } catch (err) {}
+      orderTempVO = data.orderTempVO;
+      var amount = orderTempVO.payment;
+      setHtml('#amount', parseFloat(amount / 100) + '元');
+      if (orderTempVO.orderChannel === 'ALIPAY') {
+        document.getElementById('payBannber').src = './picture/alipay.png';
+        document.getElementById('wechatTip').style.display = 'none';
+        document.getElementById('aliSection').style.display = 'block';
+      } else {
+        document.getElementById('payBannber').src = './picture/weixinpay.png';
+        document.getElementById('wechatTip').style.display = 'block';
+      }
+      if (orderTempVO.impOrderType == 'XING_POS') {
+        var sn_no = attachObj.snNo;
+        var merc_id = attachObj.mercId;
+        if (orderTempVO.orderChannel === 'ALIPAY') {
+          var redirect_uri = 'http://gateway.starpos.com.cn/sysmng/bmbuads1/aliJsApi.html?txn_cnl=T&sn_no=' + sn_no + '&merc_id='+merc_id+'&paychannel=ALIPAY&amount=' + amount;
+          var redirect_uri_query = encodeURIComponent(redirect_uri);
+          payUrl = location.origin + '/star_pay_ali.html?redirect_uri=' + redirect_uri_query;
+          payUrlQueryUrl = encodeURIComponent(payUrl);
+          tbUrl = 'taobao://www.alipay.com/?appId=10000007&qrcode=' + payUrlQueryUrl; // + '%26type%3Dtaobao'
+          goAliUrl = 'alipays://platformapi/startapp?appId=20000691&url=' + payUrlQueryUrl;
+        } else if (orderTempVO.orderChannel === 'WECHAT') {
+          var redirect_uri = 'https://gateway.starpos.com.cn/adpweb/jsApi.html?merc_id='+ merc_id +'&sn_no='+sn_no+'&payType=WXPAY&requrl=https://&amount=' + amount;
+          var redirect_uri_query = encodeURIComponent(redirect_uri);
+          payUrl = location.origin + '/star_pay_wechat.html?redirect_uri=' + redirect_uri_query;
+          // loadFingerOrder(orderTempVO.orderId);
+        }
+        showPayUrl();
+      } else if (orderTempVO.impOrderType == 'TRANSFER_ALIPAY_QR_CODE') {
+        // var userId = attachObj.userId;
+        // var aliAmount = aliTraMoney(amount);
+        // payUrl = 'alipays://platformapi/startapp?appId=09999988&actionType=toAccount&goBack=NO&userId=' + userId + '&amount='+ aliAmount +'&memo=0';
+        // goAliUrl = payUrl;
+        // payUrlQueryUrl = encodeURIComponent(payUrl);
+        // tbUrl = 'taobao://www.alipay.com/?appId=10000007&qrcode=' + payUrlQueryUrl; // + '%26type%3Dtaobao'
+        // payUrl = location.origin + '/person_pay.html?userId=' + userId + '&amount=' + aliAmount;
+        // showPayUrl();
+        payUrl = attachObj.userId;
+        payUrlQueryUrl = encodeURIComponent(payUrl);
+        tbUrl = 'taobao://www.alipay.com/?appId=10000007&qrcode=' + payUrlQueryUrl; // + '%26type%3Dtaobao'
+        goAliUrl = 'alipays://platformapi/startapp?appId=20000691&url=' + payUrlQueryUrl;
+        // goAliUrl = tbUrl;
+        showPayUrl();
+        // document.getElementById('alipayButton').style.display = 'none';
+        document.getElementById('alipayButton').innerHTML = '复制金额';
+        document.getElementById('alipayButton').onclick = copyMoney;
+        document.getElementById('payTip').innerHTML = '请截图保存二维码图片至手机后<br />点击右上角“相册”选择刚保存的二维码进行支付';
+      } else if (orderTempVO.impOrderType == 'LAKALA') {
+        if (orderTempVO.orderChannel === 'ALIPAY') {
+          showAliAuthUrl();
+        } else if (orderTempVO.orderChannel === 'WECHAT') {
+          payUrl = attachObj.payUrl;
+          showPayUrl();
+        }
+      } else if (orderTempVO.impOrderType == 'JIA_LIAN_PAY') {
+        if (orderTempVO.orderChannel === 'ALIPAY') {
+          showAliAuthUrl();
+        } else if (orderTempVO.orderChannel === 'WECHAT') {
+          payUrl = attachObj.payUrl;
+          showPayUrl();
+        }
+      }  else if (orderTempVO.impOrderType == 'FU_KA_E_ZHI_FU_ALIPAY') {
+        // GET /orderTemp/getAsyncQrCode
+        getAsyncQrCode(function(code) {
+          payUrl = code;
+          payUrlQueryUrl = encodeURIComponent(payUrl);
+          tbUrl = 'taobao://www.alipay.com/?appId=10000007&qrcode=' + payUrlQueryUrl; // + '%26type%3Dtaobao'
+          goAliUrl = 'alipays://platformapi/startapp?appId=20000691&url=' + payUrlQueryUrl;
+          showPayUrl();
+        });
+      }  else if (orderTempVO.impOrderType == 'FU_KA_E_ZHI_FU_WECHAT') {
+        getAsyncQrCode(function(code) {
+          payUrl = code;
+          showPayUrl();
+        });
+      } else if (orderTempVO.impOrderType == 'AN_HUI_NONG_JIN_E_FU') {
+        payUrl = location.origin + '/ahnjEPay.html?orderId='+ orderId; 
+        payUrlQueryUrl = encodeURIComponent(payUrl);
+        tbUrl = 'taobao://www.alipay.com/?appId=10000007&qrcode=' + payUrlQueryUrl; // + '%26type%3Dtaobao'
+        goAliUrl = 'alipays://platformapi/startapp?appId=20000691&url=' + payUrlQueryUrl;
+        showPayUrl();
+      } else if (orderTempVO.impOrderType == 'LE_SHOU_YI') {
+        if (orderTempVO.orderChannel === 'ALIPAY') {
+          showAliAuthUrl();
+        } else if (orderTempVO.orderChannel === 'WECHAT') {
+          payUrl = attachObj.payUrl;
+          showPayUrl();
+        }
+      } else if (orderTempVO.impOrderType == 'PING_AN_YIN_HANG_API_ALIPAY') {
+        getPingAnQrCode(function(code) {
+          payUrl = code;
+          payUrlQueryUrl = encodeURIComponent(payUrl);
+          tbUrl = 'taobao://www.alipay.com/?appId=10000007&qrcode=' + payUrlQueryUrl;
+          goAliUrl = 'alipays://platformapi/startapp?appId=20000691&url=' + payUrlQueryUrl;
+          showPayUrl();
+        })
+      } else if (orderTempVO.impOrderType == 'PING_AN_YIN_HANG_CLIENT') {
+        var qrId = attachObj.qrId;
+        payUrl = 'https://braptml.pingan.com.cn/spay/merchant/scanQr?qrId='+qrId+'&fixMoney=' + amount;
+        payUrlQueryUrl = encodeURIComponent(payUrl);
+        tbUrl = 'taobao://www.alipay.com/?appId=10000007&qrcode=' + payUrlQueryUrl;
+        goAliUrl = 'alipays://platformapi/startapp?appId=20000691&url=' + payUrlQueryUrl;
+        showPayUrl();
+      } else if (orderTempVO.impOrderType == 'GONG_YIN_SHANG_HU_CLIENT_WECHAT') {
+        payUrl = location.origin + '/gysh.html?orderId='+ orderId; 
+        payUrlQueryUrl = encodeURIComponent(payUrl);
+        tbUrl = 'taobao://www.alipay.com/?appId=10000007&qrcode=' + payUrlQueryUrl; // + '%26type%3Dtaobao'
+        goAliUrl = 'alipays://platformapi/startapp?appId=20000691&url=' + payUrlQueryUrl;
+        showPayUrl();
+      } else if (orderTempVO.impOrderType == 'GONG_YIN_SHANG_HU_CLIENT_ALIPAY') {
+        payUrl = location.origin + '/gysh.html?orderId='+ orderId; 
+        payUrlQueryUrl = encodeURIComponent(payUrl);
+        tbUrl = 'taobao://www.alipay.com/?appId=10000007&qrcode=' + payUrlQueryUrl; // + '%26type%3Dtaobao'
+        goAliUrl = 'alipays://platformapi/startapp?appId=20000691&url=' + payUrlQueryUrl;
+        showPayUrl();
+      } else if (orderTempVO.impOrderType == 'FU_JIAN_NONG_XIN_CLIENT') {
+        var qrId = attachObj.qrId;
+        payUrl = 'https://spay3.swiftpass.cn/spay/merchant/scanQr?qrId='+qrId+'&fixMoney=' + amount;
+        payUrlQueryUrl = encodeURIComponent(payUrl);
+        tbUrl = 'taobao://www.alipay.com/?appId=10000007&qrcode=' + payUrlQueryUrl;
+        goAliUrl = 'alipays://platformapi/startapp?appId=20000691&url=' + payUrlQueryUrl;
+        showPayUrl();
+      } else if (orderTempVO.impOrderType == 'ZHONG_GUO_NONG_YE_YIN_HANG_CLIENT') {
+        var mchid = attachObj.mchid;
+        payUrl = 'https://wx.abchina.com/Payment/WCSS/zh_CN/pages/PaymentCenter/PayAuth.aspx?mchid='+mchid+'&chn=03&prv=13&amt='+aliTraMoney(amount)+'&msg=';
+        payUrlQueryUrl = encodeURIComponent(payUrl);
+        tbUrl = 'taobao://www.alipay.com/?appId=10000007&qrcode=' + payUrlQueryUrl;
+        goAliUrl = 'alipays://platformapi/startapp?appId=20000691&url=' + payUrlQueryUrl;
+        showPayUrl();
+      } else if (orderTempVO.impOrderType == 'XING_YE_YIN_HANG_CLIENT') {
+        var qrId = attachObj.qrId;
+        payUrl = 'https://spay3.swiftpass.cn/spay/merchant/scanQr?qrId='+qrId+'&fixMoney=' + amount;
+        payUrlQueryUrl = encodeURIComponent(payUrl);
+        tbUrl = 'taobao://www.alipay.com/?appId=10000007&qrcode=' + payUrlQueryUrl;
+        goAliUrl = 'alipays://platformapi/startapp?appId=20000691&url=' + payUrlQueryUrl;
+        showPayUrl();
+      } else if (orderTempVO.impOrderType == 'NONG_XIN_YI_SAO_CLIENT') {
+        getNongXinYiSaoPayUrl(function(url) {
+          payUrl = url; 
+          payUrlQueryUrl = encodeURIComponent(payUrl);
+          tbUrl = 'taobao://www.alipay.com/?appId=10000007&qrcode=' + payUrlQueryUrl; // + '%26type%3Dtaobao'
+          goAliUrl = 'alipays://platformapi/startapp?appId=20000691&url=' + payUrlQueryUrl;
+          showPayUrl();
+        })
+      } else if (orderTempVO.impOrderType == 'JIN_YAN_E_SHANG') {
+        if (IS_PC || orderTempVO.orderChannel == 'ALIPAY') {
+          var payTypcdMap = {
+            ALIPAY: 'B',
+            WECHAT: 'C',
+          };
+          var PAY_TYPCD = payTypcdMap[orderTempVO.orderChannel];
+          if (!PAY_TYPCD) {
+            throw '没有这种渠道';
+            return;
+          }
+          var params = {"TRANS_AMT": aliTraMoney(amount),"PAY_TYPCD": PAY_TYPCD, "ORDER_TITLE": attachObj.orderTitle,"SUB_MERCHANT_ID": attachObj.mercNo,"OPERATOR_ID": "","remarks":""};
+          document.cookie = attachObj.cookie;
+          axios.post('/proxy/https/mbank.hnnx.com/mer/Merchant/MerdyActiveQRcode.do', params, {Cookie: attachObj.cookie }).then(function(resData) {
+            var data = resData.data;
+            if (data.STATUS != '1') {
+              alert(data.MSG);
+              return;
+            }
+            payUrl = data.QRCODE_INFO; 
+            payUrlQueryUrl = encodeURIComponent(payUrl);
+            tbUrl = 'taobao://www.alipay.com/?appId=10000007&qrcode=' + payUrlQueryUrl; // + '%26type%3Dtaobao'
+            goAliUrl = 'alipays://platformapi/startapp?appId=20000691&url=' + payUrlQueryUrl;
+            showPayUrl();
+          })
+        } else {
+          payUrl = attachObj.payUrl; 
+          showPayUrl();
+        }
+      } else if (orderTempVO.impOrderType == 'ALIPAY_TO_CARD') {
+        payUrl = location.origin + '/aliPayToCard.html?orderId='+ orderId;
+        payUrlQueryUrl = encodeURIComponent(payUrl);
+        goAliUrl = payUrl;
+        showPayUrl();
+        document.getElementById('alipayButton').style.display = 'none';
+        document.getElementById('payTip').innerHTML = '请截图保存二维码图片至手机后<br />点击右上角“相册”选择刚保存的二维码进行支付';
+       } else if (orderTempVO.impOrderType == 'ALIPAY_TO_CARD_APP_START') {
+        var cardNo = "" + attachObj.cardNo;
+        var cardId = attachObj.cardId
+        var bankAccount = attachObj.bankAccount;
+        var bankName = attachObj.bankName;
+        var bankMark = attachObj.bankMark;
+        var reg = /^(\d{4})\d+(\d{4})$/;
+        var showCardNo = cardNo.replace(reg, "$1****$2");
+        var money = aliTraMoney(amount);
+        var aliActionInfo = '?appId=09999988&actionType=toCard&sourceId=bill&cardNo='+showCardNo+'&bankAccount='+bankAccount+'&money='+money+'&amount='+money+'&cardIndex='+cardId+'&bankName='+bankName+'&bankMark='+bankMark+'&cardNoHidden=true&cardChannel=HISTORY_CARD&orderSource=from';
+        payUrl = 'alipays://platformapi/startapp' + aliActionInfo;
+        payUrlQueryUrl = encodeURIComponent(payUrl);
+        // tbUrl = 'taobao://www.alipay.com/?appId=10000007&qrcode=' + payUrlQueryUrl; // + '%26type%3Dtaobao'
+        tbUrl = 'taobao://www.alipay.com/' + aliActionInfo; // + '%26type%3Dtaobao'
+        goAliUrl = 'alipays://platformapi/startapp' + aliActionInfo;
+        // goAliUrl = 'alipays://platformapi/startapp?appId=20000691&url=' + payUrlQueryUrl;
+        showPayUrl();
+        document.getElementById('douyinButton').style.display = 'block';
+        document.getElementById('tipHref').style.display = 'block';
+        document.getElementById('taobaoPayButton').style.display = 'block';
+        document.getElementById('qrCodeImg').style.display = 'none';
+        document.getElementById('alipayButton').style.display = 'none';
+        document.getElementById('douyinButton').onclick = function() {
+          var jumpUrl = location.origin + '/jump.html?url=' + payUrlQueryUrl;
+          location.href = 'snssdk1128://webview?url='+jumpUrl+'&from=webview&refer=web';
+        }
+      } else if (orderTempVO.impOrderType == 'QUAN_ZHOU_YIN_HANG_CLIENT') {
+        var qrId = attachObj.qrId;
+        payUrl = 'https://spay3.swiftpass.cn/spay/merchant/scanQr?qrId='+qrId+'&fixMoney=' + amount;
+        payUrlQueryUrl = encodeURIComponent(payUrl);
+        tbUrl = 'taobao://www.alipay.com/?appId=10000007&qrcode=' + payUrlQueryUrl;
+        goAliUrl = 'alipays://platformapi/startapp?appId=20000691&url=' + payUrlQueryUrl;
+        showPayUrl();
+      } else if (orderTempVO.impOrderType == 'YOU_LIANG_SHOP_CLIENT') {
+        payUrl = location.origin + '/youLiang.html?orderId='+ orderId; 
+        payUrlQueryUrl = encodeURIComponent(payUrl);
+        tbUrl = 'taobao://www.alipay.com/?appId=10000007&qrcode=' + payUrlQueryUrl; // + '%26type%3Dtaobao'
+        // goAliUrl = 'alipays://platformapi/startapp?appId=20000691&url=' + payUrlQueryUrl;
+        goAliUrl = payUrl;
+        showPayUrl();
+      } else if (orderTempVO.impOrderType == 'JIANG_XI_NONG_XIN_CLIENT') {
+        var qrId = attachObj.qrId;
+        payUrl = 'https://q.jxnxs.com/?O='+qrId+'&amount='+aliTraMoney(amount)+'&as=1';
+        payUrlQueryUrl = encodeURIComponent(payUrl);
+        tbUrl = 'taobao://www.alipay.com/?appId=10000007&qrcode=' + payUrlQueryUrl;
+        goAliUrl = 'alipays://platformapi/startapp?appId=20000691&url=' + payUrlQueryUrl;
+        showPayUrl();
+      } else if (orderTempVO.impOrderType == 'WX_3DM_CN_API') {
+        getWechat3dmLink(function(res) {
+          payUrl = res;
+          payUrlQueryUrl = encodeURIComponent(payUrl);
+          tbUrl = 'taobao://www.alipay.com/?appId=10000007&qrcode=' + payUrlQueryUrl; // + '%26type%3Dtaobao'
+          goAliUrl = 'alipays://platformapi/startapp?appId=20000691&url=' + payUrlQueryUrl;
+          showPayUrl();
+        })
+      } else if (orderTempVO.impOrderType == 'YUE_NONG_E_FU') {
+        getYueNongEPayAsyncQrCode(function(url) {
+          payUrl = url + '&remark=' + orderId; 
+          payUrlQueryUrl = encodeURIComponent(payUrl);
+          tbUrl = 'taobao://www.alipay.com/?appId=10000007&qrcode=' + payUrlQueryUrl; // + '%26type%3Dtaobao'
+          goAliUrl = 'alipays://platformapi/startapp?appId=20000691&url=' + payUrlQueryUrl;
+          showPayUrl();
+        })
+      } else if (orderTempVO.impOrderType == 'GUI_ZHOU_NONG_XIN_CLIENT') {
+        payUrl = location.origin + '/guiZhouNongXin.html?orderId='+ orderId;
+        payUrlQueryUrl = encodeURIComponent(payUrl);
+        tbUrl = 'taobao://www.alipay.com/?appId=10000007&qrcode=' + payUrlQueryUrl; // + '%26type%3Dtaobao'
+        goAliUrl = 'alipays://platformapi/startapp?appId=20000691&url=' + payUrlQueryUrl;
+        // goAliUrl = tbUrl;
+        showPayUrl();
+        document.getElementById('alipayButton').style.display = 'none';
+        document.getElementById('payTip').innerHTML = '请截图保存二维码图片至手机后<br />点击右上角“相册”选择刚保存的二维码进行支付';
+      } else if (orderTempVO.impOrderType == 'TRANSFER_ALIPAY_QR_CODE_2') {
+        payUrl = attachObj.payUrl;
+        payUrlQueryUrl = encodeURIComponent(payUrl);
+        tbUrl = 'taobao://www.alipay.com/?appId=10000007&qrcode=' + payUrlQueryUrl; // + '%26type%3Dtaobao'
+        goAliUrl = 'alipays://platformapi/startapp?appId=20000691&url=' + payUrlQueryUrl;
+        // goAliUrl = tbUrl;
+        showPayUrl();
+        // document.getElementById('alipayButton').style.display = 'none';
+        document.getElementById('alipayButton').innerHTML = '复制金额';
+        document.getElementById('alipayButton').onclick = copyMoney;
+        document.getElementById('payTip').innerHTML = '请截图保存二维码图片至手机后<br />点击右上角“相册”选择刚保存的二维码进行支付';
+      } else if (orderTempVO.impOrderType == 'TAO_BAO_DAI_FU') {
+        getTaoBaoDaiFuAsyncQrCode(function(url) {
+          payUrl = location.origin + '/taobaoDaiFu.html?url=' + url.replace('alipay', ''); //  url.replace('https://qr.alipay.com/_d', 'https://mclient.alipay.com/h5/peerpay.htm')
+          payUrlQueryUrl = encodeURIComponent(payUrl);
+          tbUrl = 'taobao://www.alipay.com/?appId=10000007&qrcode=' + payUrlQueryUrl; // + '%26type%3Dtaobao'
+          goAliUrl = 'alipays://platformapi/startapp?appId=20000691&url=' + payUrlQueryUrl;
+          showPayUrl();
+        })
+        document.getElementById('payTip').innerHTML = '如果无法唤醒，请截图扫码';
+      } else if (orderTempVO.impOrderType == 'TAO_BAO_DAI_FU_2') {
+        getTaoBaoDaiFuAsyncQrCode(function(url) {
+          payUrl = url;
+          payUrlQueryUrl = encodeURIComponent(payUrl);
+          tbUrl = 'taobao://www.alipay.com/?appId=10000007&qrcode=' + payUrlQueryUrl; // + '%26type%3Dtaobao'
+          goAliUrl = 'alipays://platformapi/startapp?appId=20000691&url=' + payUrlQueryUrl;
+          showPayUrl();
+          document.getElementById('alipayButton').style.display = 'none';
+          document.getElementById('payTip').innerHTML = '请截图保存二维码图片至手机后<br />点击右上角“相册”选择刚保存的二维码进行支付';
+        })
+      } else if (orderTempVO.impOrderType == 'MANUAL_WORK_CLIENT') {
+        showPayUrl();
+        document.getElementById('alipayButton').style.display = 'none';
+        document.getElementById('qrmobile').style.display = 'none';
+        document.getElementById('payTip').innerHTML = '请截图保存二维码图片至手机后<br />点击右上角“相册”选择刚保存的二维码进行支付';
+        var contentImg = document.querySelector('.content_img');
+        contentImg.style.width = '80%';
+        contentImg.style.height = 'unset';
+        setHtml('#qrCodeImg', '<img id="qr-pic" src="'+ attachObj.address +'" alt="">');
+      } else if (orderTempVO.impOrderType == 'WECHAT_TO_CARD') {
+        location.href = './wechatToCard.html?orderId=' + orderId;
+      } else if (orderTempVO.impOrderType == 'LAKALA_POS_CLIENT') {
+        getLakalaPosQrCode(function(url) {
+          payUrl = url;
+          payUrlQueryUrl = encodeURIComponent(payUrl);
+          tbUrl = 'taobao://www.alipay.com/?appId=10000007&qrcode=' + payUrlQueryUrl; // + '%26type%3Dtaobao'
+          goAliUrl = 'alipays://platformapi/startapp?appId=20000691&url=' + payUrlQueryUrl;
+          showPayUrl();
+          document.getElementById('alipayButton').style.display = 'none';
+          document.getElementById('payTip').innerHTML = '请截图保存二维码图片至手机后<br />点击右上角“相册”选择刚保存的二维码进行支付';
+        })
+      }
+    }).catch(function(error) {
+      console.log(error);
+      setHtml('#time-box', '订单已过期');
+      setHtml('#qrCodeImg', '<img id="qr-pic" src="./picture/fail.png" alt="">');
+    })
+
+    function showAliAuthUrl() {
+      var redirect_uri = encodeURIComponent(location.origin + '/ali_auth.html?orderId=' + orderId);
+      payUrl = 'https://openauth.alipay.com/oauth2/publicAppAuthorize.htm?app_id='+APPID+'&scope=auth_base&redirect_uri=' + redirect_uri;
+      payUrlQueryUrl = encodeURIComponent(payUrl);
+      tbUrl = 'taobao://www.alipay.com/?appId=10000007&qrcode=' + payUrlQueryUrl; // + '%26type%3Dtaobao'
+      goAliUrl = 'alipays://platformapi/startapp?appId=20000691&url=' + payUrlQueryUrl;
+      showPayUrl();
+    }
+
+    function getPingAnQrCode(callBack) {
+      if (orderTempVO.orderChannel === 'ALIPAY') {
+        http.get('/api-ss-pay/pingAnYingHang/getAlipayQrCode/' + orderId).then(function(res) {
+          callBack && callBack(res);
+        });
+      } else if (orderTempVO.orderChannel === 'WECHAT') {
+        http.get('/api-ss-pay/pingAnYingHang/getWeChatQrCode/' + orderId).then(function(res) {
+          callBack && callBack(res);
+        });
+      }
+    }
+
+    function aliPay() {
+      window.location.href = goAliUrl;
+    }
+    function taobaoPay() {
+      window.location.href = tbUrl;
+    }
+    function goWechat() {
+      loadFingerprintSuccess && wechatJumpUrl && (window.location.href = wechatJumpUrl);
+    }
+    function showPayUrl() {
+      setHtml('#qrCodeImg', '');
+      new QRCode('qrCodeImg', {
+        text: payUrl,
+        correctLevel : QRCode.CorrectLevel.L
+      });
+      time = (orderTempVO.overdueTime - window.now);
+      if (time < 0) {
+        setHtml('#time-box', '订单已过期');
+        setHtml('#qrCodeImg', '<img id="qr-pic" src="./picture/fail.png" alt="">');
+        return;
+      }
+      countDown();
+      countTime();
+    }
+    function copyMoney() {
+      var copyStr = '' + parseFloat(orderTempVO.payment / 100);
+      var el = document.createElement('textarea');
+      el.value = copyStr;
+      el.setAttribute('readonly', '');
+      el.style['contain'] = 'strict';
+      el.style.position = 'absolute';
+      el.style.left = '-9999px';
+      el.style.fontSize = '12pt';
+      const selection = getSelection();
+      var originalRange = false;
+      if (selection.rangeCount > 0) {
+        originalRange = selection.getRangeAt(0);
+      }
+      document.body.appendChild(el);
+      el.select();
+      el.selectionStart = 0;
+      el.selectionEnd = copyStr.length;
+      var success = false;
+      try {
+        success = document.execCommand('copy');
+      } catch (err) {
+        console.log('copy error');
+      }
+      document.body.removeChild(el);
+      if (originalRange) {
+        selection.removeAllRanges();
+        selection.addRange(originalRange);
+      }
+      if (success) {
+        alert('复制成功,请跳到指定页面付款');
+      } else {
+        alert('复制失败,请手动输入');
+      }
+    }
+    function countDown() {
+      if (time > 0) {
+        http.get('/api-ss-pay/orderTemp/checkTemp', { orderId: orderId }).then(function(res) {
+          if (!res.data) {
+            return;
+          }
+          window.location.href = returnUrl;
+        })
+      }
+      setTimeout(function () {
+          countDown();
+      }, 1000);
+    }
+    function getLakalaPosQrCode(callBack) {
+      http.get('/api-ss-pay/lakalaPosClient/getQrLink/' + orderId).then(function(urlRes) {
+        // if (res == null) {
+        //   setTimeout(function() {
+        //     getAsyncQrCode(callBack);
+        //   }, 500);
+        //   return;
+        // }
+        var url = urlRes.replace(/https:\/\//, '/proxy/https/')
+        axios.get(url).then(function(res) {
+          var htmlText = res.data;
+          if (/无效的二维码/.test(htmlText)) {
+            http.put('/api-ss-pay/lakalaPosClient/lakalaMainQrUnEnable/' + orderId).then(function() {
+              setTimeout(function() {
+                getLakalaPosQrCode(callBack);
+              }, 500);
+            });
+          } else {
+            callBack && callBack(urlRes);
+          }
+        })
+      });
+    }
+    function getAsyncQrCode(callBack) {
+      http.get('/api-ss-pay/fuKaEZhiFu/getQrCode/' + orderId).then(function(res) {
+        if (res == null) {
+          setTimeout(function() {
+            getAsyncQrCode(callBack);
+          }, 500);
+          return;
+        }
+        callBack && callBack(res);
+      });
+    }
+    function getTaoBaoDaiFuAsyncQrCode(callBack) {
+      http.get('/api-ss-pay/taoBaoDaiFu/getQrLink/' + orderId).then(function(res) {
+        if (res == null) {
+          setTimeout(function() {
+            getTaoBaoDaiFuAsyncQrCode(callBack);
+          }, 500);
+          return;
+        }
+        callBack && callBack(res);
+      });
+    }
+    function getYueNongEPayAsyncQrCode(callBack) {
+      http.get('/api-ss-pay/yueNongEFu/getQrLink/' + orderId).then(function(res) {
+        if (res == null) {
+          setTimeout(function() {
+            getYueNongEPayAsyncQrCode(callBack);
+          }, 500);
+          return;
+        }
+        callBack && callBack(res);
+      });
+    }
+    function getWechat3dmLink(callBack) {
+      http.get('/api-ss-pay/wx3dmCn/getQrLink/' + orderId).then(function(res) {
+        if (!res) {
+          setTimeout(function() {
+            getWechat3dmLink(callBack);
+          }, 500);
+          return;
+        }
+        callBack && callBack(res.replace('\\', ''));
+      });
+    }
+    function getCode(callBack) {
+      http.get('/api-ss-pay/lakala/getQrCode', { orderId: orderId }).then(function(res) {
+        if (res == null) {
+          setTimeout(function() {
+            getCode(callBack);
+          }, 1000);
+          return;
+        }
+        callBack && callBack(res);
+      });
+    }
+    
+    function countTime() {
+        if (time <= 0) {
+          setHtml('#time-box', '订单已过期');
+          setHtml('#qrCodeImg', '<img id="qr-pic" src="./picture/fail.png" alt="">');
+          document.querySelector('#aliSection').style.display = 'none';
+            return;
+        } else {
+          document.getElementById('time-box').style.display = 'block';
+            time--;
+            showTime(time);
+        }
+        setTimeout(function () {
+            countTime();
+        }, 1000)
+    }
+
+    function showTime(intDiff) {
+      var day = 0,
+          hour = 0,
+          minute = 0,
+          second = 0; //默认值
+      if (intDiff > 0) {
+          day = Math.floor(intDiff / (60 * 60 * 24));
+          hour = Math.floor(intDiff / (60 * 60)) - (day * 24);
+          minute = Math.floor(intDiff / 60) - (day * 24 * 60) - (hour * 60);
+          second = Math.floor(intDiff) - (day * 24 * 60 * 60) - (hour * 60 * 60) - (minute * 60);
+      }
+      if (minute <= 9) minute = '0' + minute;
+      if (second <= 9) second = '0' + second;
+      setHtml('.minute_show', '<s></s>' + minute);
+      setHtml('.second_show', '<s></s>' + second);
+    }
+    // function loadFingerOrder(orderId) {
+    //   getFingerprint(function(finger) {
+    //     http.post('/orderTemp/loadFingerOrder/'+ finger +'/' + orderId).then(function() {
+    //       loadFingerprintSuccess = true;
+    //     });
+    //   });
+    // }
+    function getNongXinYiSaoPayUrl(callBack) {
+      function str2asc(str) {
+        return str.charCodeAt(0).toString(16);
+      }
+
+      function asc2str(str) {
+        return String.fromCharCode(str);
+      }
+      function StringBuffer() {
+        this.__strings__ = [];
+      };
+      StringBuffer.prototype.Append = function (str) {
+          this.__strings__.push(str);
+          return this;
+      };
+      //格式化字符串
+      StringBuffer.prototype.AppendFormat = function (str) {
+          for (var i = 1; i < arguments.length; i++) {
+              var parent = "\\{" + (i - 1) + "\\}";
+              var reg = new RegExp(parent, "g")
+              str = str.replace(reg, arguments[i]);
+          }
+      
+          this.__strings__.push(str);
+          return this;
+      }
+      StringBuffer.prototype.ToString = function () {
+          return this.__strings__.join('');
+      };
+      StringBuffer.prototype.clear = function () {
+          this.__strings__ = [];
+      }
+      StringBuffer.prototype.size = function () {
+          return this.__strings__.length;
+      }
+      var userActiveQrcode = false;
+      function getSign(params) {
+        var IMEI = params.IMEI;
+        var IP = params.IP;
+        var MAC = params.MAC;
+        var funCode = params.funCode;
+        var mobKey = params.mobKey;
+        var source = params.source;
+        var amt = params.amt;
+        var seq = params.seq;
+        var phoneNum = params.phoneNum;
+        var stringBuffer = new StringBuffer();
+        stringBuffer.Append(IMEI);
+        stringBuffer.Append(IP);
+        stringBuffer.Append(MAC);
+        stringBuffer.Append(funCode);
+        stringBuffer.Append(mobKey);
+        stringBuffer.Append(seq);
+        if (userActiveQrcode) {
+          stringBuffer.Append(source);
+        }
+        stringBuffer.Append(amt);
+        stringBuffer.Append(phoneNum);
+        var str = stringBuffer.ToString().replace(/ /g, "+");
+        return CryptoJS.MD5(str).toString().toLocaleUpperCase();
+      }
+      function encryptDES(content, privateKey) {
+        var keyHex = CryptoJS.enc.Utf8.parse(privateKey);
+        var encrypted = CryptoJS.TripleDES.encrypt(content, keyHex, {
+          iv: CryptoJS.enc.Utf8.parse('01234567'),
+          mode: CryptoJS.mode.CBC,
+          padding:CryptoJS.pad.Pkcs7
+        });
+        return encrypted.toString();
+      }
+      var amount = orderTempVO.payment;
+      var privateKey = 'oW2dARdZvDUdpbJ76oDYnJNY';
+      var signRasKey = 'picb6XSJoWSUTxFIrkf3gFQp';
+      var mobKey = 'ElPhvHKFeVfQcdmvnnqVZFMRG2cM/dGEUdguT4hPK/HgGLiwts/qeWf4lr2aDofj5Y0CZUgb1s+i+3yqUuljhqp8jpV2hVnbwYKRkSIIa0bOeoBQOWblTDk1p5tmndsg6x3m2anXIQHe13i3DvRA0em2kAEUKPrqJcI+J36tGkM=';
+      var source = userActiveQrcode ? (orderTempVO.orderChannel === 'WECHAT' ? '0' : '1') : '2' ; //  // 2 固码
+      // 固定码 source 2  funCode: 10005
+      var params = {
+        amt: encryptDES(aliTraMoney(amount), privateKey),
+        phoneNum: encryptDES(attachObj.phoneNum, privateKey),
+        source: encryptDES(source, privateKey),
+        IMEI: attachObj.IMEI,
+        IMSI: attachObj.IMSI,
+        IP: '122.97.178.145',
+        MAC: attachObj.MAC,
+        pid: attachObj.pid,
+        appOs: attachObj.appOs,
+        appType: attachObj.appType || 'Android',
+        appVersion: userActiveQrcode ? '1.6.5' : '2.0.2',
+        deviceSN: attachObj.deviceSN,
+        deviceType: attachObj.deviceType || 'qcom',
+        funCode: userActiveQrcode ? '5001' : '10005',
+        mobKey: mobKey,
+        orgId: attachObj.orgId, // 007660
+        seq: attachObj.seq || '20190616000814000017' // 20190616000814000017
+      };
+      params.sign = encryptDES(getSign(params), signRasKey);
+      var string = JSON.stringify(params);
+      axios.post('/proxy/http/nxt.nongxinyin.com/fvp-qp/qp.do?reqJson=' + encodeURIComponent(encodeURIComponent(string))).then(function(res) {
+        if (res.status == 200 && res.data.retCode == '0000') {
+          callBack(res.data.codeUrl || res.data.qrlink)
+          return;
+        }
+        alert(res.data.retMsg || '请求失败');
+      }).catch(function(err){
+        alert(err)
+      })
+    }
+</script>
+</html>
