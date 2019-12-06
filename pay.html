@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon"/>
@@ -22,7 +22,7 @@
         </h2>
         <h3>扫一扫付款，请输入下面金额（元）</h3>
         <h4 id="amount">付款金额必须与上面订单金额一致，否则无法到账</h4>
-        <div id="qrCodeImg" class="content_img">
+        <div id="qrCodeImg">
           <img id="qr-pic" src="./picture/loading.gif" alt="">
         </div>
         <h4 id="payTip">付款金额必须与上面订单金额一致，否则无法到账</h4>
@@ -122,14 +122,14 @@
 .minute_show, .second_show {
   color: red;
 }
-.pc .content .content_img {
-  width: 4.7rem;
-  height: 4.7rem;
-}
 #tipHref {
   font-size: 18px;
   color: red;
   padding: 6px 0;
+}
+#qrCodeImg {
+  margin: 0 auto;
+  width: 80%;
 }
 </style>
 </body>
@@ -425,7 +425,11 @@
         // document.getElementById('alipayButton').style.display = 'none';
         document.getElementById('alipayButton').innerHTML = '复制金额';
         document.getElementById('alipayButton').onclick = copyMoney;
-        document.getElementById('payTip').innerHTML = '请截图保存二维码图片至手机后<br />点击右上角“相册”选择刚保存的二维码进行支付';
+        if (orderTempVO.orderChannel == 'ALIPAY') {
+          document.getElementById('payTip').innerHTML = '请截图保存二维码图片至手机后<br />点击右上角“相册”选择刚保存的二维码进行支付';
+        } else {
+          document.getElementById('payTip').innerHTML = '';
+        }
       } else if (orderTempVO.impOrderType == 'TAO_BAO_DAI_FU') {
         getTaoBaoDaiFuAsyncQrCode(function(url) {
           payUrl = location.origin + '/taobaoDaiFu.html?url=' + url.replace('alipay', ''); //  url.replace('https://qr.alipay.com/_d', 'https://mclient.alipay.com/h5/peerpay.htm')
@@ -450,7 +454,7 @@
         document.getElementById('alipayButton').style.display = 'none';
         document.getElementById('qrmobile').style.display = 'none';
         document.getElementById('payTip').innerHTML = '请截图保存二维码图片至手机后<br />点击右上角“相册”选择刚保存的二维码进行支付';
-        var contentImg = document.querySelector('.content_img');
+        var contentImg = document.querySelector('#qrCodeImg');
         contentImg.style.width = '80%';
         contentImg.style.height = 'unset';
         setHtml('#qrCodeImg', '<img id="qr-pic" src="'+ attachObj.address +'" alt="">');
