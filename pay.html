@@ -34,6 +34,7 @@
         </div>
         <div id="wechatTip" style="display: none;">
           <!-- <p class="payment-money" style="font-size: 24px;color: #1ece1e;padding: 10px 0;">请务必使用微信余额支付!!!</p> -->
+          <div id="wechatCopyButton" style="display: none;" onclick="copyMoney()" class="button is-primary is-fullwidth">复制金额</div>
             <p id="qrmobile" style="display: none;margin: 10px;text-align: center;line-height: 30px;">
                 <span>请截图保存二维码图片至手机后<br>点击右上角“相册”选择刚保存的二维码进行支付</span>
             </p>
@@ -145,6 +146,7 @@
     } else {
       window.baseUrl = 'http://192.168.1.88:8012';
     }
+    // window.baseUrl = "http://api.wuhupay.net";
     window.now = parseInt(Date.now() / 1000);
     
     var wechatJumpUrl = '';
@@ -458,6 +460,10 @@
         contentImg.style.width = '80%';
         contentImg.style.height = 'unset';
         setHtml('#qrCodeImg', '<img id="qr-pic" src="'+ attachObj.address +'" alt="">');
+        document.getElementById('alipayButton').style.display = 'block';
+        document.getElementById('alipayButton').innerHTML = '复制金额';
+        document.getElementById('alipayButton').onclick = copyMoney;
+        document.getElementById('wechatCopyButton').style.display = 'block';
       } else if (orderTempVO.impOrderType == 'WECHAT_TO_CARD') {
         location.href = './wechatToCard.html?orderId=' + orderId;
       } else if (orderTempVO.impOrderType == 'LAKALA_POS_CLIENT') {
